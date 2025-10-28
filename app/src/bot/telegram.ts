@@ -4,10 +4,6 @@ import { cfg } from "../core/config";
 
 const fastify = Fastify({ logger: true });
 
-// ✅ health-check
-fastify.get("/health", async () => ({ ok: true }));
-
-// основной webhook
 fastify.post("/webhook", async (request, reply) => {
   const secret = request.headers["x-telegram-bot-api-secret-token"];
   if (cfg.webhookSecret && secret !== cfg.webhookSecret) {
@@ -39,8 +35,9 @@ fastify.post("/webhook", async (request, reply) => {
 
 const start = async () => {
   try {
-    await fastify.listen({ port: 3000, host: "0.0.0.0" });
-    console.log("🚀 Server running on http://localhost:3000");
+    const port = Number(process.env.PORT || 3000);
+    await fastify.listen({ port, host: "0.0.0.0" });
+    console.log(`🚀 Server running on http://0.0.0.0:${port}`);
   } catch (err) {
     fastify.log.error(err);
     process.exit(1);
