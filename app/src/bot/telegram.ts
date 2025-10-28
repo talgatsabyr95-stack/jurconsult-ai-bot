@@ -2,6 +2,7 @@
 import Fastify from "fastify";
 import { cfg } from "../core/config";
 import { supabase } from "../core/db";
+import { generateReply } from "../llm/openai";
 
 const fastify = Fastify({ logger: true });
 
@@ -18,25 +19,25 @@ fastify.post("/webhook", async (request, reply) => {
   const chatId = update?.message?.chat?.id;
   const textIn = update?.message?.text as string | undefined;
 
-  // 🧩 Сохраняем сообщение в Supabase
-  try {
-    await supabase.from("requests").insert({
-      chat_id: chatId,
-      username: update?.message?.from?.username ?? null,
-      message: textIn ?? null,
-      jurisdiction: null,
-    });
-  } catch (e) {
-    fastify.log.error({ e }, "supabase_insert_failed");
-  }
-
-  // 🤖 Отправляем ответ пользователю
   if (chatId) {
-    const textOut =
-      textIn === "/start"
-        ? "Здравствуйте! ЮрКонсалт AI на связи. Кратко опишите ваш вопрос и укажите юрисдикцию (например, KZ)."
-        : `Принял: ${textIn ?? "сообщение"}\n(данные сохранены в базе Supabase ✅)`;
+    let textOut: string;
 
+    if (textIn === "/start") {
+      textOut =
+        "Здравствуйте! ЮрКонсалт AI на связи. Кратко опишите ваш вопрос и укажите юрисдикцию (например, KZ).";
+    } else {
+      // Генерируем ответ через OpenAI
+      textOut = await generateReply(textIn || "пустой запрос");
+    }
+
+    // Сохраняем в Supabase
+    await supabase.from("requests").insert({
+      user_id: chatId,
+      text: textIn,
+      created_at: new Date().toISOString(),
+    });
+
+    // Отправляем ответ пользователю
     await fetch(`https://api.telegram.org/bot${cfg.tgToken}/sendMessage`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -49,8 +50,9 @@ fastify.post("/webhook", async (request, reply) => {
 
 const start = async () => {
   try {
-    await fastify.listen({ port: Number(process.env.PORT) || 3000, host: "0.0.0.0" });
-    console.log("🚀 Server running on http://localhost:" + (process.env.PORT || 3000));
+    const port = Number(process.env.PORT) || 3000;
+    await fastify.listen({ port, host: "0.0.0.0" });
+    console.log(`🚀 Server running on http://localhost:${port}`);
   } catch (err) {
     fastify.log.error(err);
     process.exit(1);
