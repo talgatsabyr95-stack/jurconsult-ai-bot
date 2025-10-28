@@ -2,13 +2,16 @@
   "name": "jurconsult-ai-bot",
   "version": "0.1.0",
   "private": true,
-  "engines": { "node": ">=18" },
+  "engines": {
+    "node": ">=18"
+  },
   "scripts": {
     "build": "tsc",
     "start": "node dist/bot/telegram.js",
     "dev": "tsx app/src/bot/telegram.ts"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.76.1",
     "dotenv": "^16.4.5",
     "fastify": "^4.26.2"
   },
