@@ -1,12 +1,13 @@
 // app/src/llm/openai.ts
 import OpenAI from "openai";
-import { cfg } from "../core/config";
 
-export const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY || cfg.openaiApiKey,
-});
+const apiKey = process.env.OPENAI_API_KEY;
+if (!apiKey) {
+  console.warn("[openai] OPENAI_API_KEY is not set in environment");
+}
 
-// Простая функция, чтобы генерировать ответ
+export const openai = new OpenAI({ apiKey: apiKey || "" });
+
 export async function generateReply(prompt: string) {
   try {
     const res = await openai.chat.completions.create({
@@ -15,7 +16,7 @@ export async function generateReply(prompt: string) {
         {
           role: "system",
           content:
-            "Ты — вежливый юридический ассистент, отвечай кратко и по существу.",
+            "Ты — вежливый юридический ассистент-пресейл. Отвечай кратко, по делу, без финальных юрзаключений. Веди к офферу/броне.",
         },
         { role: "user", content: prompt },
       ],
@@ -23,7 +24,7 @@ export async function generateReply(prompt: string) {
       temperature: 0.4,
     });
 
-    return res.choices[0].message.content?.trim() || "Извини, не понял вопрос.";
+    return res.choices[0].message.content?.trim() || "Извините, не понял запрос.";
   } catch (err) {
     console.error("❌ OpenAI error:", err);
     return "Произошла ошибка при генерации ответа.";
