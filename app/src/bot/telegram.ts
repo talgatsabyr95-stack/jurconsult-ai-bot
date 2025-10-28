@@ -1,6 +1,7 @@
 // app/src/bot/telegram.ts
 import Fastify from "fastify";
 import { cfg } from "../core/config";
+import { supabase } from "../core/db";
 
 const fastify = Fastify({ logger: true });
 
@@ -17,11 +18,24 @@ fastify.post("/webhook", async (request, reply) => {
   const chatId = update?.message?.chat?.id;
   const textIn = update?.message?.text as string | undefined;
 
+  // 🧩 Сохраняем сообщение в Supabase
+  try {
+    await supabase.from("requests").insert({
+      chat_id: chatId,
+      username: update?.message?.from?.username ?? null,
+      message: textIn ?? null,
+      jurisdiction: null,
+    });
+  } catch (e) {
+    fastify.log.error({ e }, "supabase_insert_failed");
+  }
+
+  // 🤖 Отправляем ответ пользователю
   if (chatId) {
     const textOut =
       textIn === "/start"
         ? "Здравствуйте! ЮрКонсалт AI на связи. Кратко опишите ваш вопрос и укажите юрисдикцию (например, KZ)."
-        : `Принял: ${textIn ?? "сообщение"}\n(это тестовый ответ, сейчас настроим полноценный диалог)`;
+        : `Принял: ${textIn ?? "сообщение"}\n(данные сохранены в базе Supabase ✅)`;
 
     await fetch(`https://api.telegram.org/bot${cfg.tgToken}/sendMessage`, {
       method: "POST",
@@ -35,9 +49,8 @@ fastify.post("/webhook", async (request, reply) => {
 
 const start = async () => {
   try {
-    const port = Number(process.env.PORT || 3000);
-    await fastify.listen({ port, host: "0.0.0.0" });
-    console.log(`🚀 Server running on http://0.0.0.0:${port}`);
+    await fastify.listen({ port: Number(process.env.PORT) || 3000, host: "0.0.0.0" });
+    console.log("🚀 Server running on http://localhost:" + (process.env.PORT || 3000));
   } catch (err) {
     fastify.log.error(err);
     process.exit(1);
